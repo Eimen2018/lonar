@@ -10,7 +10,20 @@ Works on any Apple Silicon Mac (M1 → M4, incl. Pro/Max/Ultra multi-display
 setups). Not sandboxed, not App Store material — it uses private APIs, like
 every app in this category.
 
-## Build & run
+## Install
+
+Download `Lonar.app.zip` from the
+[latest release](https://github.com/Eimen2018/lonar/releases/latest), unzip,
+and move `Lonar.app` to `/Applications`.
+
+The app is ad-hoc signed (no paid Apple Developer ID), so on first launch
+macOS will refuse to open it. Either right-click → **Open** → **Open**, or:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Lonar.app
+```
+
+## Build & run from source
 
 ```bash
 swift build && .build/debug/Lonar        # run the menu bar app
