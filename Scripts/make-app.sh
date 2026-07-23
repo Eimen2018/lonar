@@ -11,9 +11,10 @@ swift build -c release --arch arm64
 
 APP=build/Lonar.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/arm64-apple-macosx/release/Lonar "$APP/Contents/MacOS/Lonar"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
 if [[ -n "$IDENTITY" ]]; then

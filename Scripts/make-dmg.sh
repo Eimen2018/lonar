@@ -1,8 +1,9 @@
 #!/bin/bash
-# Package Lonar.app into a drag-to-Applications DMG using only hdiutil.
+# Package Lonar.app into a styled drag-to-Applications DMG.
+# Uses create-dmg (brew install create-dmg) for the designed window
+# (background, volume icon, positioned icons); falls back to plain hdiutil.
 # If a Developer ID cert was used and a notarytool keychain profile named
-# "lonar-notary" exists, the DMG is notarized and stapled — downloads then
-# open with no Gatekeeper warning.
+# "lonar-notary" exists, the DMG is notarized and stapled.
 # Usage: Scripts/make-dmg.sh   (runs make-app.sh first)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,9 +17,24 @@ DMG="build/Lonar-$VERSION.dmg"
 rm -rf "$STAGING" "$DMG"
 mkdir -p "$STAGING"
 cp -R build/Lonar.app "$STAGING/Lonar.app"
-ln -s /Applications "$STAGING/Applications"
 
-hdiutil create -volname "Lonar $VERSION" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+if command -v create-dmg >/dev/null; then
+    create-dmg \
+        --volname "Lonar $VERSION" \
+        --volicon Resources/AppIcon.icns \
+        --background Resources/dmg-background.tiff \
+        --window-size 660 400 \
+        --icon-size 128 \
+        --icon "Lonar.app" 165 200 \
+        --app-drop-link 528 200 \
+        --hide-extension "Lonar.app" \
+        --no-internet-enable \
+        "$DMG" "$STAGING"
+else
+    echo "create-dmg not found — building plain DMG (brew install create-dmg for the styled one)"
+    ln -s /Applications "$STAGING/Applications"
+    hdiutil create -volname "Lonar $VERSION" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+fi
 rm -rf "$STAGING"
 
 IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
