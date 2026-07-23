@@ -58,6 +58,7 @@ private struct DisplayRow: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var syncEngine: SyncEngine
     @State private var manualPercent: Double = 50
+    @State private var isDragging = false
     @State private var showCurve = false
 
     private var statePercent: Int {
@@ -83,11 +84,16 @@ private struct DisplayRow: View {
             }
 
             Slider(value: $manualPercent, in: 0...100) { editing in
+                isDragging = editing
                 if !editing {
                     syncEngine.setManual(displayID: display.id, percent: manualPercent)
                 }
             }
             .controlSize(.small)
+            // Keep the knob following auto-sync unless the user is mid-drag.
+            .onChange(of: statePercent) { _, newValue in
+                if !isDragging { manualPercent = Double(newValue) }
+            }
 
             DisclosureGroup("Curve", isExpanded: $showCurve) {
                 CurveEditor(edidUUID: display.edidUUID)
