@@ -66,7 +66,7 @@ Lonar builtin-set .5 # set built-in panel brightness (debug)
 
 ## Requirements
 
-- Apple Silicon Mac (M1 or newer, incl. Pro/Max/Ultra)
+- Apple Silicon Mac (M1 or newer, incl. Pro/Max/Ultra) — tested on M1 and M2 Pro
 - macOS 14 Sonoma or newer
 - An external monitor that supports DDC/CI (most do), connected via
   USB-C/Thunderbolt/DisplayPort
