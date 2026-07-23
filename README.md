@@ -16,12 +16,18 @@ Download `Lonar.app.zip` from the
 [latest release](https://github.com/Eimen2018/lonar/releases/latest), unzip,
 and move `Lonar.app` to `/Applications`.
 
-The app is ad-hoc signed (no paid Apple Developer ID), so on first launch
-macOS will refuse to open it. Either right-click → **Open** → **Open**, or:
+The app is ad-hoc signed (no paid Apple Developer ID), so macOS will warn
+that it "couldn't verify" the download. Two ways past it:
+
+- Try to open it, dismiss the dialog, then System Settings →
+  **Privacy & Security** → **Open Anyway**, or
+- clear the quarantine flag in Terminal:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Lonar.app
 ```
+
+(Or skip all of this by building from source below.)
 
 ## Build & run from source
 
