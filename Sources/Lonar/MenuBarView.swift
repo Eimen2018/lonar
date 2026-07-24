@@ -44,6 +44,12 @@ struct MenuBarView: View {
             }
 
             HStack {
+                if let updater = state.updaterController {
+                    Button("Check for Updates…") {
+                        updater.updater.checkForUpdates()
+                    }
+                    .font(.caption)
+                }
                 Spacer()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }

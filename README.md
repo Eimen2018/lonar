@@ -20,9 +20,14 @@ Releases are signed with a Developer ID and notarized by Apple, so they open
 without Gatekeeper warnings. (Local builds from source fall back to ad-hoc
 signing, which is fine for the machine that built them.)
 
+Lonar updates itself via [Sparkle](https://sparkle-project.org) — it checks
+for new releases and offers one-click install ("Check for Updates…" in the
+popover forces a check).
+
 ## Build & run from source
 
 ```bash
+Scripts/fetch-sparkle.sh                 # one-time: fetch pinned Sparkle.framework
 swift build && .build/debug/Lonar        # run the menu bar app
 ```
 

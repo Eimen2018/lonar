@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Sparkle
 import SwiftUI
 
 @main
@@ -18,6 +19,9 @@ final class AppState: ObservableObject {
     let displayManager: DisplayManager
     let syncEngine: SyncEngine
     let builtinMonitor: BuiltinBrightnessMonitor
+    /// nil when running outside a .app bundle (swift run / CLI dev builds),
+    /// where Sparkle has no bundle identity to update.
+    let updaterController: SPUStandardUpdaterController?
 
     @Published var builtinBrightness: Float = 0
 
@@ -29,6 +33,9 @@ final class AppState: ObservableObject {
         self.displayManager = DisplayManager()
         self.syncEngine = SyncEngine(settings: settings)
         self.builtinMonitor = BuiltinBrightnessMonitor()
+        self.updaterController = Bundle.main.bundlePath.hasSuffix(".app")
+            ? SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+            : nil
 
         displayManager.onDisplaysChanged = { [weak self] displays in
             self?.builtinMonitor.invalidateDisplayCache()
