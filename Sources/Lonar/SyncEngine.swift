@@ -138,9 +138,15 @@ final class DisplayWorker {
             next = target
         }
 
-        let ok = AppleSiliconDDC.write(
-            service: display.service, command: VCP.brightness, value: UInt16(max(0, next))
-        )
+        let ok: Bool
+        switch display.control {
+        case .ddc(let service):
+            ok = AppleSiliconDDC.write(
+                service: service, command: VCP.brightness, value: UInt16(max(0, next)))
+        case .appleNative:
+            ok = DisplayServices.setBrightness(
+                Float(next) / Float(display.maxBrightness), for: display.id)
+        }
         if ok {
             consecutiveFailures = 0
             lastWritten = next

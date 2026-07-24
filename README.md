@@ -1,4 +1,8 @@
-# Lonar
+<p align="center">
+  <img src="Resources/AppIcon-source.png" width="140" alt="Lonar icon">
+</p>
+
+<h1 align="center">Lonar</h1>
 
 A free, open-source replacement for Lunar Pro's **Sync Mode**: a macOS menu bar app
 that keeps external monitors' hardware brightness (via DDC/CI) in sync with the
@@ -73,14 +77,23 @@ Lonar builtin-set .5 # set built-in panel brightness (debug)
 
 - Apple Silicon Mac (M1 or newer, incl. Pro/Max/Ultra) — tested on M1 and M2 Pro
 - macOS 14 Sonoma or newer
-- An external monitor that supports DDC/CI (most do), connected via
-  USB-C/Thunderbolt/DisplayPort
+
+## Supported monitors
+
+- **Any DDC/CI-capable monitor** (VESA standard — virtually every desktop
+  monitor: Dell, LG, Samsung, BenQ, ASUS, HP, …) over
+  USB-C/Thunderbolt/DisplayPort. Brand doesn't matter; the protocol does.
+- **Apple-protocol displays** (Studio Display, Pro Display XDR, UltraFine) via
+  native DisplayServices control.
+- Multiple external displays, mixed brands/protocols, each with its own curve.
 
 ## Known limitations
 
 - The built-in HDMI port on base M1/M2 Macs doesn't pass DDC cleanly
   (hardware limitation shared with Lunar/MonitorControl). USB-C/Thunderbolt →
   DisplayPort is reliable. DisplayLink adapters are unsupported.
+- A minority of monitors/TVs have flaky DDC firmware; Lonar retries, flags
+  the display as failed, and reprobes every 30 s.
 - Deferred for later: volume/contrast/input control, software gamma dimming
   fallback, XDR.
 

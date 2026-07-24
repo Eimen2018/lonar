@@ -23,7 +23,7 @@ struct MenuBarView: View {
                 .foregroundStyle(.secondary)
 
             if displayManager.externals.isEmpty {
-                Text("No DDC-capable external display found")
+                Text("No controllable external display found")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
@@ -78,7 +78,7 @@ private struct DisplayRow: View {
                 Text(display.name).font(.subheadline).bold()
                 Spacer()
                 if syncEngine.displayStates[display.id] == .ddcFailed {
-                    Label("DDC failed", systemImage: "exclamationmark.triangle")
+                    Label("\(display.controlLabel) failed", systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 } else {

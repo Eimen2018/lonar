@@ -28,8 +28,9 @@ let package = Package(
                     "-F", ".sparkle",
                     // Installed app: framework embedded in the bundle.
                     "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks",
-                    // Dev builds run from .build/<config>/: use .sparkle/ directly.
-                    "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../.sparkle",
+                    // Dev builds run from .build/arm64-apple-macosx/<config>/:
+                    // resolve .sparkle/ at the package root.
+                    "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../.sparkle",
                 ]),
             ]
         ),

@@ -14,16 +14,23 @@ enum CLI {
             }
             for d in displays {
                 let current = d.initialValue.map(String.init) ?? "?"
-                print("[\(d.id)] \(d.name)  edid=\(d.edidUUID)  brightness=\(current)/\(d.maxBrightness)")
+                print("[\(d.id)] \(d.name) (\(d.controlLabel))  uuid=\(d.edidUUID)  brightness=\(current)/\(d.maxBrightness)")
             }
             exit(0)
 
         case "ddc-get":
             for d in DisplayManager.scan() {
-                if let r = AppleSiliconDDC.read(service: d.service, command: VCP.brightness) {
-                    print("\(d.name): \(r.current)/\(r.max)")
-                } else {
-                    print("\(d.name): DDC read failed")
+                switch d.control {
+                case .ddc(let service):
+                    if let r = AppleSiliconDDC.read(service: service, command: VCP.brightness) {
+                        print("\(d.name): \(r.current)/\(r.max)")
+                    } else {
+                        print("\(d.name): DDC read failed")
+                    }
+                case .appleNative:
+                    let value = DisplayServices.brightness(for: d.id)
+                        .map { String(Int(($0 * 100).rounded())) } ?? "?"
+                    print("\(d.name): \(value)/100 (Apple native)")
                 }
             }
             exit(0)
@@ -34,7 +41,13 @@ enum CLI {
                 exit(1)
             }
             for d in DisplayManager.scan() {
-                let ok = AppleSiliconDDC.write(service: d.service, command: VCP.brightness, value: value)
+                let ok: Bool
+                switch d.control {
+                case .ddc(let service):
+                    ok = AppleSiliconDDC.write(service: service, command: VCP.brightness, value: value)
+                case .appleNative:
+                    ok = DisplayServices.setBrightness(Float(value) / 100.0, for: d.id)
+                }
                 print("\(d.name): write \(value) -> \(ok ? "ok" : "FAILED")")
             }
             exit(0)
