@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 /// Debug/smoke-test subcommands. The same binary runs these when given args
 /// and only starts the menu bar UI when launched bare.
@@ -103,6 +104,34 @@ enum CLI {
                 print("\(d.name): dim \(pct)% (gamma ×\(multiplier)) -> \(ok ? "ok" : "FAILED")")
             }
             exit(0)
+
+        case "preview":
+            // Dev tool: render the popover to a PNG without opening the UI.
+            // The CLI entry point runs on the main thread.
+            MainActor.assumeIsolated {
+                let out = arguments.count > 2 ? arguments[2] : "popover-preview.png"
+                let state = AppState()
+                let view = MenuBarView()
+                    .environmentObject(state)
+                    .environmentObject(state.settings)
+                    .environmentObject(state.displayManager)
+                    .environmentObject(state.syncEngine)
+                    .background(.regularMaterial)
+                    .preferredColorScheme(.dark)
+                let renderer = ImageRenderer(content: view)
+                renderer.scale = 2
+                if let image = renderer.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let png = rep.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: out))
+                    print("wrote \(out)")
+                    exit(0)
+                }
+                print("render failed")
+                exit(1)
+            }
+            exit(1)
 
         case "builtin-set":
             guard arguments.count > 2, let value = Float(arguments[2]), (0...1).contains(value) else {

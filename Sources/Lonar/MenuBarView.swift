@@ -7,59 +7,116 @@ struct MenuBarView: View {
     @EnvironmentObject var syncEngine: SyncEngine
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Lonar").font(.headline)
-                Spacer()
-                Toggle("Sync", isOn: $settings.syncEnabled)
-                    .toggleStyle(.switch)
-                    .onChange(of: settings.syncEnabled) { _, enabled in
-                        if enabled { syncEngine.resync() }
-                    }
-            }
-
-            Text("Built-in: \(Int((state.builtinBrightness * 100).rounded()))%")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            builtinRow
 
             if displayManager.externals.isEmpty {
-                Text("No controllable external display found")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                emptyState
             } else {
                 ForEach(displayManager.externals) { display in
-                    DisplayRow(display: display)
+                    DisplayCard(display: display)
                 }
             }
 
-            Divider()
+            footer
+        }
+        .padding(12)
+        .frame(width: 320)
+    }
 
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "circle.lefthalf.filled.inverse")
+                .font(.title3)
+                .foregroundStyle(.tint)
+            Text("Lonar")
+                .font(.system(.headline, design: .rounded, weight: .bold))
+            Spacer()
+            Toggle("", isOn: $settings.syncEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .labelsHidden()
+                .onChange(of: settings.syncEnabled) { _, enabled in
+                    if enabled { syncEngine.resync() }
+                }
+        }
+    }
+
+    private var builtinRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "laptopcomputer")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("Built-in display")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text("\(Int((state.builtinBrightness * 100).rounded()))%")
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(settings.syncEnabled ? Color.accentColor : .secondary)
+        }
+        .padding(.horizontal, 2)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "display.trianglebadge.exclamationmark")
+                .font(.title2)
+                .foregroundStyle(.tertiary)
+            Text("No controllable display found")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("Connect a DDC-capable or Apple monitor")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(cardShape)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 10) {
             if AppSettings.canManageLoginItem {
-                Toggle("Launch at login", isOn: $settings.launchAtLogin)
+                Toggle("Open at login", isOn: $settings.launchAtLogin)
                     .toggleStyle(.checkbox)
+                    .controlSize(.small)
+                    .font(.caption)
             } else {
-                Text("Run from Lonar.app to enable launch at login")
+                Text("Open at login needs Lonar.app")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
-
-            HStack {
-                if let updater = state.updaterController {
-                    Button("Check for Updates…") {
-                        updater.updater.checkForUpdates()
-                    }
-                    .font(.caption)
+            Spacer()
+            if let updater = state.updaterController {
+                Button {
+                    updater.updater.checkForUpdates()
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
                 }
-                Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
+                .buttonStyle(.borderless)
+                .help("Check for updates")
             }
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Image(systemName: "power")
+            }
+            .buttonStyle(.borderless)
+            .help("Quit Lonar")
         }
-        .padding(14)
-        .frame(width: 300)
+        .padding(.top, 2)
     }
 }
 
-private struct DisplayRow: View {
+private var cardShape: some View {
+    RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .fill(.quaternary.opacity(0.5))
+}
+
+private struct DisplayCard: View {
     let display: ExternalDisplay
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var syncEngine: SyncEngine
@@ -74,25 +131,60 @@ private struct DisplayRow: View {
             } ?? 50
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(display.name).font(.subheadline).bold()
-                Spacer()
-                if syncEngine.displayStates[display.id] == .ddcFailed {
-                    Label("\(display.controlLabel) failed", systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                } else {
-                    Text("\(statePercent)%")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-            }
+    private var isSubZero: Bool { manualPercent < 0 }
 
-            // Range below 0 is sub-zero: software dimming past the
-            // hardware minimum.
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            titleRow
+            brightnessRow
+            if let volume = display.volume {
+                VolumeRow(display: display, initial: volume)
+            }
+            if display.supportsDDCExtras {
+                InputRow(display: display)
+            }
+            curveSection
+        }
+        .padding(10)
+        .background(cardShape)
+        .onAppear { manualPercent = Double(statePercent) }
+    }
+
+    private var titleRow: some View {
+        HStack(spacing: 6) {
+            Text(display.name)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+            Text(display.controlLabel)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(.quaternary))
+            Spacer()
+            if syncEngine.displayStates[display.id] == .ddcFailed {
+                Label("Failed", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            } else if isSubZero {
+                Label("\(Int(manualPercent))%", systemImage: "moon.fill")
+                    .font(.caption.weight(.medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.indigo)
+            } else {
+                Text("\(statePercent)%")
+                    .font(.caption.weight(.medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var brightnessRow: some View {
+        HStack(spacing: 7) {
+            Image(systemName: isSubZero ? "moon.stars.fill" : "sun.min.fill")
+                .font(.caption)
+                .foregroundStyle(isSubZero ? AnyShapeStyle(.indigo) : AnyShapeStyle(.tertiary))
             Slider(
                 value: $manualPercent,
                 in: Double(SyncEngine.minPercent)...Double(SyncEngine.maxPercent)
@@ -103,40 +195,38 @@ private struct DisplayRow: View {
                 }
             }
             .controlSize(.small)
-            .tint(manualPercent < 0 ? .indigo : .accentColor)
-            // Keep the knob following auto-sync unless the user is mid-drag.
+            .tint(isSubZero ? .indigo : .accentColor)
             .onChange(of: statePercent) { _, newValue in
                 if !isDragging { manualPercent = Double(newValue) }
             }
-
-            if let volume = display.volume {
-                VolumeSlider(display: display, initial: volume)
-            }
-
-            if display.supportsDDCExtras {
-                InputPicker(display: display)
-            }
-
-            DisclosureGroup("Curve", isExpanded: $showCurve) {
-                CurveEditor(edidUUID: display.edidUUID)
-            }
-            .font(.caption)
+            Image(systemName: "sun.max.fill")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
-        .onAppear { manualPercent = Double(statePercent) }
+    }
+
+    private var curveSection: some View {
+        DisclosureGroup(isExpanded: $showCurve) {
+            CurveEditor(edidUUID: display.edidUUID)
+        } label: {
+            Label("Sync curve", systemImage: "point.bottomleft.forward.to.point.topright.scurvepath")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
-private struct VolumeSlider: View {
+private struct VolumeRow: View {
     let display: ExternalDisplay
     let initial: (current: UInt16, max: UInt16)
     @EnvironmentObject var syncEngine: SyncEngine
     @State private var volume: Double = -1
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "speaker.wave.2")
+        HStack(spacing: 7) {
+            Image(systemName: "speaker.fill")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
             Slider(value: $volume, in: 0...Double(initial.max)) { editing in
                 if !editing {
                     syncEngine.sendCommand(
@@ -144,19 +234,24 @@ private struct VolumeSlider: View {
                         value: UInt16(volume.rounded()))
                 }
             }
-            .controlSize(.mini)
+            .controlSize(.small)
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .onAppear { if volume < 0 { volume = Double(initial.current) } }
     }
 }
 
-private struct InputPicker: View {
+private struct InputRow: View {
     let display: ExternalDisplay
     @EnvironmentObject var syncEngine: SyncEngine
 
     var body: some View {
         HStack {
-            Text("Input").font(.caption).foregroundStyle(.secondary)
+            Label("Input", systemImage: "cable.connector.horizontal")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Spacer()
             Menu {
                 ForEach(InputSource.allCases) { source in
@@ -173,7 +268,7 @@ private struct InputPicker: View {
                     }
                 }
             } label: {
-                Text(InputSource(rawValue: display.currentInput ?? 0)?.label ?? "Switch…")
+                Text(InputSource(rawValue: display.currentInput ?? 0)?.label ?? "Switch")
                     .font(.caption)
             }
             .menuStyle(.borderlessButton)
@@ -189,24 +284,33 @@ private struct CurveEditor: View {
 
     var body: some View {
         let curve = settings.curve(for: edidUUID)
-        VStack(alignment: .leading, spacing: 4) {
-            LabeledSlider(label: "Min", value: curve.minPercent, range: -50...90) { newValue in
+        VStack(alignment: .leading, spacing: 5) {
+            LabeledSlider(
+                label: "Min", value: curve.minPercent, range: -50...90,
+                format: { "\(Int($0))%" }
+            ) { newValue in
                 var c = settings.curve(for: edidUUID)
                 c.minPercent = min(newValue, c.maxPercent - 5)
                 apply(c)
             }
-            LabeledSlider(label: "Max", value: curve.maxPercent, range: 10...100) { newValue in
+            LabeledSlider(
+                label: "Max", value: curve.maxPercent, range: 10...100,
+                format: { "\(Int($0))%" }
+            ) { newValue in
                 var c = settings.curve(for: edidUUID)
                 c.maxPercent = max(newValue, c.minPercent + 5)
                 apply(c)
             }
-            LabeledSlider(label: "Gamma", value: curve.gamma, range: 0.3...3.0) { newValue in
+            LabeledSlider(
+                label: "Shape", value: curve.gamma, range: 0.3...3.0,
+                format: { String(format: "γ %.1f", $0) }
+            ) { newValue in
                 var c = settings.curve(for: edidUUID)
                 c.gamma = newValue
                 apply(c)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, 6)
     }
 
     private func apply(_ curve: DisplayCurve) {
@@ -219,17 +323,22 @@ private struct LabeledSlider: View {
     let label: String
     let value: Double
     let range: ClosedRange<Double>
+    let format: (Double) -> String
     let onChange: (Double) -> Void
 
     var body: some View {
-        HStack {
-            Text(label).frame(width: 44, alignment: .leading)
+        HStack(spacing: 7) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .leading)
             Slider(value: Binding(get: { value }, set: onChange), in: range)
                 .controlSize(.mini)
-            Text(String(format: "%.1f", value))
+            Text(format(value))
+                .font(.caption2.weight(.medium))
                 .monospacedDigit()
-                .frame(width: 34, alignment: .trailing)
+                .foregroundStyle(.secondary)
+                .frame(width: 42, alignment: .trailing)
         }
-        .font(.caption)
     }
 }
