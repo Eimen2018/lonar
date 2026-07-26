@@ -14,7 +14,10 @@ enum CLI {
             }
             for d in displays {
                 let current = d.initialValue.map(String.init) ?? "?"
-                print("[\(d.id)] \(d.name) (\(d.controlLabel))  uuid=\(d.edidUUID)  brightness=\(current)/\(d.maxBrightness)")
+                var extras = ""
+                if let v = d.volume { extras += "  volume=\(v.current)/\(v.max)" }
+                if let i = d.currentInput { extras += "  input=\(i)" }
+                print("[\(d.id)] \(d.name) (\(d.controlLabel))  uuid=\(d.edidUUID)  brightness=\(current)/\(d.maxBrightness)\(extras)")
             }
             exit(0)
 
@@ -52,6 +55,55 @@ enum CLI {
             }
             exit(0)
 
+        case "volume-set":
+            guard arguments.count > 2, let value = UInt16(arguments[2]) else {
+                print("usage: Lonar volume-set <0-100>")
+                exit(1)
+            }
+            for d in DisplayManager.scan() where d.supportsDDCExtras {
+                if case .ddc(let service) = d.control {
+                    let ok = AppleSiliconDDC.write(service: service, command: VCP.volume, value: value)
+                    print("\(d.name): volume \(value) -> \(ok ? "ok" : "FAILED")")
+                }
+            }
+            exit(0)
+
+        case "input-set":
+            guard arguments.count > 2, let value = UInt16(arguments[2]) else {
+                print("usage: Lonar input-set <code>  (15/16=DisplayPort, 17/18=HDMI, 27=USB-C)")
+                exit(1)
+            }
+            for d in DisplayManager.scan() where d.supportsDDCExtras {
+                if case .ddc(let service) = d.control {
+                    let ok = AppleSiliconDDC.write(service: service, command: VCP.inputSelect, value: value)
+                    print("\(d.name): input \(value) -> \(ok ? "ok" : "FAILED")")
+                }
+            }
+            exit(0)
+
+        case "dim":
+            // Full percent domain incl. sub-zero, e.g. `Lonar dim -30`.
+            guard arguments.count > 2, let pct = Int(arguments[2]),
+                  (SyncEngine.minPercent...SyncEngine.maxPercent).contains(pct) else {
+                print("usage: Lonar dim <\(SyncEngine.minPercent)..\(SyncEngine.maxPercent)>")
+                exit(1)
+            }
+            for d in DisplayManager.scan() {
+                let hardware = max(0, pct)
+                let ok: Bool
+                switch d.control {
+                case .ddc(let service):
+                    let value = UInt16((Double(hardware) / 100.0 * Double(d.maxBrightness)).rounded())
+                    ok = AppleSiliconDDC.write(service: service, command: VCP.brightness, value: value)
+                case .appleNative:
+                    ok = DisplayServices.setBrightness(Float(hardware) / 100.0, for: d.id)
+                }
+                let multiplier = pct >= 0 ? Float(1.0) : 1.0 + Float(pct) / 50.0 * 0.8
+                GammaDimmer.setMultiplier(multiplier, for: d.id)
+                print("\(d.name): dim \(pct)% (gamma ×\(multiplier)) -> \(ok ? "ok" : "FAILED")")
+            }
+            exit(0)
+
         case "builtin-set":
             guard arguments.count > 2, let value = Float(arguments[2]), (0...1).contains(value) else {
                 print("usage: Lonar builtin-set <0.0-1.0>")
@@ -83,6 +135,9 @@ enum CLI {
               displays       list DDC-capable external displays
               ddc-get        read brightness via DDC from each external display
               ddc-set <n>    set DDC brightness (0-100) on each external display
+              dim <n>        set brightness incl. sub-zero (-50..100)
+              volume-set <n> set speaker volume via DDC (0-100)
+              input-set <n>  switch input source (15/16=DP, 17/18=HDMI, 27=USB-C)
               builtin-get    read built-in display brightness
             """)
             exit(cmd == "help" ? 0 : 1)

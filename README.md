@@ -28,6 +28,18 @@ Lonar updates itself via [Sparkle](https://sparkle-project.org) — it checks
 for new releases and offers one-click install ("Check for Updates…" in the
 popover forces a check).
 
+## Features
+
+- **Sync Mode** — externals follow the built-in display's
+  ambient-light-adjusted brightness, with a per-display curve (min/max/gamma)
+- **Sub-zero dimming** — drag below 0%: software dimming past the hardware
+  minimum, for pitch-dark rooms
+- **Volume control** — monitor speaker volume over DDC
+- **Input switching** — flip the monitor between DisplayPort/HDMI/USB-C
+  sources from the popover
+- **Scroll to dim** — scroll on the menu bar icon to adjust all externals
+- Manual sliders, launch at login, debug CLI built into the binary
+
 ## Build & run from source
 
 ```bash
@@ -94,8 +106,8 @@ Lonar builtin-set .5 # set built-in panel brightness (debug)
   DisplayPort is reliable. DisplayLink adapters are unsupported.
 - A minority of monitors/TVs have flaky DDC firmware; Lonar retries, flags
   the display as failed, and reprobes every 30 s.
-- Deferred for later: volume/contrast/input control, software gamma dimming
-  fallback, XDR.
+- Deferred for later: contrast control, brightness-key capture with native
+  OSD, location-based mode for clamshell setups, XDR.
 
 ## Disclaimer
 

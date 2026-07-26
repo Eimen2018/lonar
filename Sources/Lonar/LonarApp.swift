@@ -56,8 +56,38 @@ final class AppState: ObservableObject {
 
         displayManager.startObserving()
         builtinMonitor.start()
+        startScrollToDim()
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { _ in
+            GammaDimmer.restoreAll()
+        }
         NSLog("Lonar: brightness notifications %@",
               builtinMonitor.usingNotifications ? "active (watchdog poll 5s)" : "unavailable (poll 0.5s)")
+    }
+
+    /// Scroll wheel over the menu bar icon adjusts all external displays.
+    /// The status item's window is an AppKit implementation detail of
+    /// MenuBarExtra, so match by window class name; if Apple renames it the
+    /// feature silently no-ops.
+    private var scrollAccumulator: Double = 0
+    private func startScrollToDim() {
+        NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self, let window = event.window,
+                  String(describing: type(of: window)).contains("StatusBarWindow") else {
+                return event
+            }
+            var delta = event.scrollingDeltaY
+            if event.isDirectionInvertedFromDevice { delta = -delta }
+            self.scrollAccumulator += delta
+            // ~5 scroll points per 1% step keeps trackpads controllable.
+            let steps = Int(self.scrollAccumulator / 5)
+            if steps != 0 {
+                self.scrollAccumulator -= Double(steps * 5)
+                self.syncEngine.adjustAll(byPercent: steps)
+            }
+            return nil
+        }
     }
 
     /// Polling is pointless with no DDC display or with sync off.

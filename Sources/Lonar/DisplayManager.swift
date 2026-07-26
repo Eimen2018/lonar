@@ -22,6 +22,15 @@ struct ExternalDisplay: Identifiable {
     let maxBrightness: UInt16
     /// Brightness value at discovery time, if readable.
     let initialValue: UInt16?
+    /// Speaker volume at discovery (DDC only; nil if the monitor won't say).
+    let volume: (current: UInt16, max: UInt16)?
+    /// Active input source code at discovery (DDC only, VCP 0x60).
+    let currentInput: UInt16?
+
+    var supportsDDCExtras: Bool {
+        if case .ddc = control { return true }
+        return false
+    }
 
     var controlLabel: String {
         switch control {
@@ -58,13 +67,17 @@ final class DisplayManager: ObservableObject {
                 ? (displayName(for: match.displayID) ?? "Display \(match.displayID)")
                 : match.serviceDetails.productName
             claimed.insert(match.displayID)
+            let volume = AppleSiliconDDC.read(service: service, command: VCP.volume)
+            let input = AppleSiliconDDC.read(service: service, command: VCP.inputSelect)
             found.append(ExternalDisplay(
                 id: match.displayID,
                 name: name,
                 edidUUID: match.serviceDetails.edidUUID,
                 control: .ddc(service),
                 maxBrightness: (reading?.max ?? 0) > 0 ? reading!.max : 100,
-                initialValue: reading?.current
+                initialValue: reading?.current,
+                volume: volume.map { (current: $0.current, max: $0.max > 0 ? $0.max : 100) },
+                currentInput: input.map { $0.current & 0xFF }
             ))
         }
 
@@ -79,7 +92,9 @@ final class DisplayManager: ObservableObject {
                 edidUUID: displayUUID(for: id),
                 control: .appleNative,
                 maxBrightness: 100,
-                initialValue: current.map { UInt16(($0 * 100).rounded()) }
+                initialValue: current.map { UInt16(($0 * 100).rounded()) },
+                volume: nil,
+                currentInput: nil
             ))
         }
         return found
@@ -133,4 +148,27 @@ final class DisplayManager: ObservableObject {
 
 enum VCP {
     static let brightness: UInt8 = 0x10
+    static let volume: UInt8 = 0x62
+    static let inputSelect: UInt8 = 0x60
+}
+
+/// Common MCCS input-source codes. Monitors only respond to codes for ports
+/// they physically have; the picker offers the standard set.
+enum InputSource: UInt16, CaseIterable, Identifiable {
+    case displayPort1 = 15
+    case displayPort2 = 16
+    case hdmi1 = 17
+    case hdmi2 = 18
+    case usbC = 27
+
+    var id: UInt16 { rawValue }
+    var label: String {
+        switch self {
+        case .displayPort1: return "DisplayPort 1"
+        case .displayPort2: return "DisplayPort 2"
+        case .hdmi1: return "HDMI 1"
+        case .hdmi2: return "HDMI 2"
+        case .usbC: return "USB-C"
+        }
+    }
 }
