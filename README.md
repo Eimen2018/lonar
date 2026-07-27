@@ -16,6 +16,14 @@ every app in this category.
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install --cask eimen2018/tap/lonar
+```
+
+### Direct download
+
 Download `Lonar.app.zip` from the
 [latest release](https://github.com/Eimen2018/lonar/releases/latest), unzip,
 and move `Lonar.app` to `/Applications`.
