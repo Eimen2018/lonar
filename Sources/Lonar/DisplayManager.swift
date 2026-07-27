@@ -24,6 +24,8 @@ struct ExternalDisplay: Identifiable {
     let initialValue: UInt16?
     /// Speaker volume at discovery (DDC only; nil if the monitor won't say).
     let volume: (current: UInt16, max: UInt16)?
+    /// True if the monitor reported audio muted at discovery (VCP 0x8D == 1).
+    let mutedAtDiscovery: Bool?
     /// Active input source code at discovery (DDC only, VCP 0x60).
     let currentInput: UInt16?
 
@@ -69,6 +71,7 @@ final class DisplayManager: ObservableObject {
             claimed.insert(match.displayID)
             let volume = AppleSiliconDDC.read(service: service, command: VCP.volume)
             let input = AppleSiliconDDC.read(service: service, command: VCP.inputSelect)
+            let mute = AppleSiliconDDC.read(service: service, command: VCP.audioMute)
             found.append(ExternalDisplay(
                 id: match.displayID,
                 name: name,
@@ -77,6 +80,7 @@ final class DisplayManager: ObservableObject {
                 maxBrightness: (reading?.max ?? 0) > 0 ? reading!.max : 100,
                 initialValue: reading?.current,
                 volume: volume.map { (current: $0.current, max: $0.max > 0 ? $0.max : 100) },
+                mutedAtDiscovery: mute.map { $0.current == 1 },
                 currentInput: input.map { $0.current & 0xFF }
             ))
         }
@@ -94,6 +98,7 @@ final class DisplayManager: ObservableObject {
                 maxBrightness: 100,
                 initialValue: current.map { UInt16(($0 * 100).rounded()) },
                 volume: nil,
+                mutedAtDiscovery: nil,
                 currentInput: nil
             ))
         }
@@ -150,6 +155,8 @@ enum VCP {
     static let brightness: UInt8 = 0x10
     static let volume: UInt8 = 0x62
     static let inputSelect: UInt8 = 0x60
+    /// MCCS audio mute: 1 = muted, 2 = unmuted.
+    static let audioMute: UInt8 = 0x8D
 }
 
 /// Common MCCS input-source codes. Monitors only respond to codes for ports

@@ -221,25 +221,56 @@ private struct VolumeRow: View {
     let initial: (current: UInt16, max: UInt16)
     @EnvironmentObject var syncEngine: SyncEngine
     @State private var volume: Double = -1
+    @State private var muted = false
+    @State private var seeded = false
+
+    private var volumePercent: Int {
+        Int((volume / Double(initial.max) * 100).rounded())
+    }
 
     var body: some View {
         HStack(spacing: 7) {
-            Image(systemName: "speaker.fill")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            Button {
+                muted.toggle()
+                syncEngine.sendCommand(
+                    displayID: display.id, command: VCP.audioMute,
+                    value: muted ? 1 : 2)
+            } label: {
+                Image(systemName: muted ? "speaker.slash.fill" : "speaker.fill")
+                    .font(.caption)
+                    .foregroundStyle(muted ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                    .frame(width: 14)
+            }
+            .buttonStyle(.borderless)
+            .help(muted ? "Unmute" : "Mute")
             Slider(value: $volume, in: 0...Double(initial.max)) { editing in
                 if !editing {
+                    if muted {
+                        // Adjusting volume implies the user wants sound back.
+                        muted = false
+                        syncEngine.sendCommand(
+                            displayID: display.id, command: VCP.audioMute, value: 2)
+                    }
                     syncEngine.sendCommand(
                         displayID: display.id, command: VCP.volume,
                         value: UInt16(volume.rounded()))
                 }
             }
             .controlSize(.small)
-            Image(systemName: "speaker.wave.3.fill")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            .tint(muted ? .gray : .accentColor)
+            Text(muted ? "Muted" : "\(volumePercent)%")
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(muted ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                .frame(width: 42, alignment: .trailing)
         }
-        .onAppear { if volume < 0 { volume = Double(initial.current) } }
+        .onAppear {
+            if !seeded {
+                seeded = true
+                volume = Double(initial.current)
+                muted = display.mutedAtDiscovery ?? false
+            }
+        }
     }
 }
 

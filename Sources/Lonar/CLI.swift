@@ -17,6 +17,7 @@ enum CLI {
                 let current = d.initialValue.map(String.init) ?? "?"
                 var extras = ""
                 if let v = d.volume { extras += "  volume=\(v.current)/\(v.max)" }
+                if let m = d.mutedAtDiscovery { extras += m ? "  muted" : "" }
                 if let i = d.currentInput { extras += "  input=\(i)" }
                 print("[\(d.id)] \(d.name) (\(d.controlLabel))  uuid=\(d.edidUUID)  brightness=\(current)/\(d.maxBrightness)\(extras)")
             }
@@ -65,6 +66,19 @@ enum CLI {
                 if case .ddc(let service) = d.control {
                     let ok = AppleSiliconDDC.write(service: service, command: VCP.volume, value: value)
                     print("\(d.name): volume \(value) -> \(ok ? "ok" : "FAILED")")
+                }
+            }
+            exit(0)
+
+        case "mute-set":
+            guard arguments.count > 2, let value = UInt16(arguments[2]), value == 1 || value == 2 else {
+                print("usage: Lonar mute-set <1|2>  (1=mute, 2=unmute)")
+                exit(1)
+            }
+            for d in DisplayManager.scan() where d.supportsDDCExtras {
+                if case .ddc(let service) = d.control {
+                    let ok = AppleSiliconDDC.write(service: service, command: VCP.audioMute, value: value)
+                    print("\(d.name): mute \(value == 1 ? "on" : "off") -> \(ok ? "ok" : "FAILED")")
                 }
             }
             exit(0)
