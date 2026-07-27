@@ -166,25 +166,17 @@ private struct DisplayCard: View {
                 Label("Failed", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2)
                     .foregroundStyle(.orange)
-            } else if isSubZero {
-                Label("\(Int(manualPercent))%", systemImage: "moon.fill")
-                    .font(.caption.weight(.medium))
-                    .monospacedDigit()
-                    .foregroundStyle(.indigo)
-            } else {
-                Text("\(statePercent)%")
-                    .font(.caption.weight(.medium))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
             }
         }
     }
 
+    // Same shape as VolumeRow: leading icon, slider, trailing percent.
     private var brightnessRow: some View {
         HStack(spacing: 7) {
-            Image(systemName: isSubZero ? "moon.stars.fill" : "sun.min.fill")
+            Image(systemName: isSubZero ? "moon.stars.fill" : "sun.max.fill")
                 .font(.caption)
-                .foregroundStyle(isSubZero ? AnyShapeStyle(.indigo) : AnyShapeStyle(.tertiary))
+                .foregroundStyle(isSubZero ? AnyShapeStyle(.indigo) : AnyShapeStyle(.secondary))
+                .frame(width: 14)
             Slider(
                 value: $manualPercent,
                 in: Double(SyncEngine.minPercent)...Double(SyncEngine.maxPercent)
@@ -199,9 +191,11 @@ private struct DisplayCard: View {
             .onChange(of: statePercent) { _, newValue in
                 if !isDragging { manualPercent = Double(newValue) }
             }
-            Image(systemName: "sun.max.fill")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            Text("\(Int(manualPercent))%")
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(isSubZero ? AnyShapeStyle(.indigo) : AnyShapeStyle(.secondary))
+                .frame(width: 42, alignment: .trailing)
         }
     }
 
