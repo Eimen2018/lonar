@@ -89,9 +89,14 @@ final class SyncEngine: ObservableObject {
         }
     }
 
-    /// One-off DDC command (volume, input select) on the display's queue.
+    /// One-off DDC command (input select, mute) on the display's queue.
     func sendCommand(displayID: CGDirectDisplayID, command: UInt8, value: UInt16) {
         workers[displayID]?.sendCommand(command, value: value)
+    }
+
+    /// Live-drag-safe volume: coalesced and rate-limited like brightness.
+    func setVolume(displayID: CGDirectDisplayID, value: UInt16) {
+        workers[displayID]?.setCommandTarget(VCP.volume, value: value)
     }
 
     static func mapBrightness(builtin: Float, curve: DisplayCurve) -> Int {
@@ -138,12 +143,40 @@ final class DisplayWorker {
         }
     }
 
-    /// Non-brightness DDC command (volume, input), serialized on the same
+    /// Non-brightness DDC command (input, mute), serialized on the same
     /// queue so it never interleaves with a brightness step mid-I2C.
     func sendCommand(_ command: UInt8, value: UInt16) {
         queue.async {
             guard case .ddc(let service) = self.display.control else { return }
             _ = AppleSiliconDDC.write(service: service, command: command, value: value)
+        }
+    }
+
+    /// Coalesced, rate-limited command channel for continuous input (live
+    /// volume drags): the latest value per VCP code wins, one write per
+    /// `writeInterval`, so dragging can never flood the I2C bus.
+    private var pendingCommands: [UInt8: UInt16] = [:]
+    private var commandPumpRunning = false
+
+    func setCommandTarget(_ command: UInt8, value: UInt16) {
+        queue.async {
+            self.pendingCommands[command] = value
+            self.pumpCommands()
+        }
+    }
+
+    private func pumpCommands() {
+        guard !commandPumpRunning, !cancelled,
+              let (command, value) = pendingCommands.first else { return }
+        pendingCommands.removeValue(forKey: command)
+        commandPumpRunning = true
+        if case .ddc(let service) = display.control {
+            _ = AppleSiliconDDC.write(service: service, command: command, value: value)
+        }
+        queue.asyncAfter(deadline: .now() + writeInterval) { [weak self] in
+            guard let self else { return }
+            self.commandPumpRunning = false
+            self.pumpCommands()
         }
     }
 

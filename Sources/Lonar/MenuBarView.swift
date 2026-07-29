@@ -191,6 +191,12 @@ private struct DisplayCard: View {
             .onChange(of: statePercent) { _, newValue in
                 if !isDragging { manualPercent = Double(newValue) }
             }
+            // Live updates while dragging; the worker coalesces + rate-limits.
+            .onChange(of: manualPercent) { _, newValue in
+                if isDragging {
+                    syncEngine.setManual(displayID: display.id, percent: newValue)
+                }
+            }
             Text("\(Int(manualPercent))%")
                 .font(.caption.weight(.medium))
                 .monospacedDigit()
@@ -217,6 +223,7 @@ private struct VolumeRow: View {
     @State private var volume: Double = -1
     @State private var muted = false
     @State private var seeded = false
+    @State private var isAdjusting = false
 
     private var volumePercent: Int {
         Int((volume / Double(initial.max) * 100).rounded())
@@ -238,20 +245,15 @@ private struct VolumeRow: View {
             .buttonStyle(.borderless)
             .help(muted ? "Unmute" : "Mute")
             Slider(value: $volume, in: 0...Double(initial.max)) { editing in
-                if !editing {
-                    if muted {
-                        // Adjusting volume implies the user wants sound back.
-                        muted = false
-                        syncEngine.sendCommand(
-                            displayID: display.id, command: VCP.audioMute, value: 2)
-                    }
-                    syncEngine.sendCommand(
-                        displayID: display.id, command: VCP.volume,
-                        value: UInt16(volume.rounded()))
-                }
+                isAdjusting = editing
+                if !editing { pushVolume() }
             }
             .controlSize(.small)
             .tint(muted ? .gray : .accentColor)
+            // Live updates while dragging; coalesced in the worker.
+            .onChange(of: volume) { _, _ in
+                if isAdjusting { pushVolume() }
+            }
             Text(muted ? "Muted" : "\(volumePercent)%")
                 .font(.caption.weight(.medium))
                 .monospacedDigit()
@@ -265,6 +267,15 @@ private struct VolumeRow: View {
                 muted = display.mutedAtDiscovery ?? false
             }
         }
+    }
+
+    private func pushVolume() {
+        if muted {
+            // Adjusting volume implies the user wants sound back.
+            muted = false
+            syncEngine.sendCommand(displayID: display.id, command: VCP.audioMute, value: 2)
+        }
+        syncEngine.setVolume(displayID: display.id, value: UInt16(volume.rounded()))
     }
 }
 
